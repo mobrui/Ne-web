@@ -1,0 +1,201 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <meta name="description" content="NE Naught Project - 从「无」中诞生的乐队企划">
+  <title>NE Naught Project</title>
+  <link rel="icon" type="image/jpeg" href="src/imgs/LOGO.jpeg">
+  <link rel="stylesheet" href="css/style.css">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Noto+Sans+SC:wght@300;400;500;700;900&family=Orbitron:wght@400;700;900&display=swap" rel="stylesheet">
+</head>
+<body>
+
+  <!-- ========== NAVIGATION ========== -->
+  <nav class="nav" id="nav">
+    <div class="nav-inner">
+      <a href="#home" class="nav-logo">
+        <img src="src/imgs/LOGO.jpeg" alt="NE Naught" class="nav-avatar">
+        <span class="nav-brand">NE Naught</span>
+      </a>
+      <button class="nav-toggle" id="navToggle" aria-label="菜单">
+        <span></span><span></span><span></span>
+      </button>
+      <ul class="nav-links" id="navLinks">
+        <li><a href="#home" data-i18n="nav-home">首页</a></li>
+        <li><a href="#about" data-i18n="nav-about">社团介绍</a></li>
+        <li><a href="#news" data-i18n="nav-news">活动信息</a></li>
+        <li><a href="#gallery" data-i18n="nav-gallery">照片墙</a></li>
+        <li><a href="#joinus" data-i18n="nav-joinus">加入我们</a></li>
+        <li><a href="#friends" data-i18n="nav-friends">友链</a></li>
+      </ul>
+    </div>
+  </nav>
+
+  <!-- ========== HERO / HOME ========== -->
+  <section class="hero" id="home">
+    <div class="hero-bg">
+      <div class="equalizer" aria-hidden="true">
+        <span style="--h:60%;--d:1.2s"></span>
+        <span style="--h:80%;--d:0.9s"></span>
+        <span style="--h:45%;--d:1.5s"></span>
+        <span style="--h:95%;--d:0.7s"></span>
+        <span style="--h:55%;--d:1.1s"></span>
+        <span style="--h:75%;--d:0.8s"></span>
+        <span style="--h:40%;--d:1.4s"></span>
+        <span style="--h:90%;--d:0.6s"></span>
+        <span style="--h:65%;--d:1.3s"></span>
+        <span style="--h:50%;--d:1.0s"></span>
+        <span style="--h:85%;--d:0.75s"></span>
+        <span style="--h:35%;--d:1.6s"></span>
+        <span style="--h:70%;--d:0.85s"></span>
+        <span style="--h:48%;--d:1.25s"></span>
+        <span style="--h:92%;--d:0.65s"></span>
+        <span style="--h:58%;--d:1.15s"></span>
+      </div>
+    </div>
+    <div class="hero-content">
+      <img src="src/imgs/LOGO.jpeg" alt="NE Naught Logo" class="hero-logo">
+      <h1 class="hero-title">
+        <span class="hero-title-main">NE Naught</span>
+        <span class="hero-title-sub">Project</span>
+      </h1>
+      <p class="hero-desc">
+        自<span class="highlight">「无」</span>中诞生的乐队企划，指向东北的辉光
+      </p>
+      <a href="#about" class="hero-scroll" aria-label="向下滚动">
+        <span class="scroll-arrow"></span>
+      </a>
+    </div>
+  </section>
+
+  <!-- ========== ABOUT / 社团介绍 ========== -->
+  <section class="about" id="about">
+    <div class="section-header">
+      <h2 class="section-title">社团介绍</h2>
+      <div class="section-divider">
+        <span class="divider-line"></span>
+        <span class="divider-diamond"></span>
+        <span class="divider-line"></span>
+      </div>
+    </div>
+    <div class="about-content">
+      <div class="about-card accent">
+        <p class="about-text">
+          自<span class="highlight">「无（Naught）」</span>中诞生出的小小愿望，汇聚成指向东北<span class="highlight">（NE）</span>的辉光！
+        </p>
+        <p class="about-text">
+          由每一个心怀乐队梦想，渴望登台演出的乐队成员的心愿凝聚而成的乐队企划，<strong>NE Naught Project</strong>，参上！
+        </p>
+        <p class="about-text">
+          对上电波就约定好来共谱一首乐曲，这就是我们的活动形式。也许下一次电波就不会延续，也许短暂的相通没有意义，我们也想在这一次的舞台唱出我们心中的歌。
+        </p>
+        <p class="about-text">
+          海纳百川的「无」让我们每个人自由释放电波，正在台下的<span class="highlight">「你」</span>，也来投身这股洪流，与我们一同创造<strong>最棒的live</strong>吧！
+        </p>
+      </div>
+    </div>
+  </section>
+
+  <!-- ========== NEWS / 活动信息 ========== -->
+  <section class="news" id="news">
+    <div class="section-header">
+      <h2 class="section-title">活动信息</h2>
+      <div class="section-divider">
+        <span class="divider-line"></span>
+        <span class="divider-diamond"></span>
+        <span class="divider-line"></span>
+      </div>
+    </div>
+    <div class="news-container" id="newsContainer">
+      <!-- JS fills dynamically -->
+    </div>
+  </section>
+
+  <!-- ========== GALLERY / 照片墙 ========== -->
+  <section class="gallery" id="gallery">
+    <div class="section-header">
+      <h2 class="section-title">照片墙</h2>
+      <div class="section-divider">
+        <span class="divider-line"></span>
+        <span class="divider-diamond"></span>
+        <span class="divider-line"></span>
+      </div>
+    </div>
+    <div class="gallery-marquee" id="galleryMarquee">
+      <!-- JS fills: two rows, infinite scroll -->
+    </div>
+  </section>
+
+  <!-- ========== POST DETAIL OVERLAY ========== -->
+  <div class="post-overlay" id="postOverlay">
+    <div class="post-overlay-backdrop"></div>
+    <div class="post-detail">
+      <button class="post-close" id="postClose" aria-label="关闭">&times;</button>
+      <header class="post-detail-header">
+        <time class="post-detail-date" id="postDate"></time>
+        <h1 class="post-detail-title" id="postTitle"></h1>
+      </header>
+      <div class="post-detail-body" id="postBody">
+        <div class="spinner"></div>
+      </div>
+      <footer class="post-detail-footer">
+        <button class="post-back-btn" id="postBackBtn">← 返回活动列表</button>
+      </footer>
+    </div>
+  </div>
+
+  <!-- ========== LIGHTBOX ========== -->
+  <div class="lightbox" id="lightbox">
+    <button class="lightbox-close" id="lightboxClose" aria-label="关闭">&times;</button>
+    <img src="" alt="" class="lightbox-img" id="lightboxImg">
+    <p class="lightbox-caption" id="lightboxCaption"></p>
+  </div>
+
+  <!-- ========== JOIN US / 加入我们 ========== -->
+  <section class="joinus" id="joinus">
+    <div class="section-header">
+      <h2 class="section-title">加入我们</h2>
+      <div class="section-divider">
+        <span class="divider-line"></span>
+        <span class="divider-diamond"></span>
+        <span class="divider-line"></span>
+      </div>
+    </div>
+    <div class="joinus-grid" id="joinusGrid">
+      <!-- JS fills from content/joinus.json -->
+    </div>
+  </section>
+
+  <!-- ========== FRIENDS / 友链 ========== -->
+  <section class="friends" id="friends">
+    <div class="section-header">
+      <h2 class="section-title">友链</h2>
+      <div class="section-divider">
+        <span class="divider-line"></span>
+        <span class="divider-diamond"></span>
+        <span class="divider-line"></span>
+      </div>
+    </div>
+    <div class="friends-grid" id="friendsGrid">
+      <!-- JS fills dynamically -->
+    </div>
+    <p class="friends-note">
+      想和我们交换友链？<a href="mailto:nenaught@example.com">联系我们</a>
+    </p>
+  </section>
+
+  <!-- ========== FOOTER ========== -->
+  <footer class="footer">
+    <div class="footer-inner">
+      <img src="src/imgs/LOGO.jpeg" alt="NE Naught" class="footer-logo">
+      <p class="footer-copy">&copy; <span id="year"></span> NE Naught Project. All rights reserved.</p>
+      <p class="footer-tagline">— 从「无」中诞生的辉光 —</p>
+    </div>
+  </footer>
+
+  <script src="js/main.js"></script>
+</body>
+</html>
