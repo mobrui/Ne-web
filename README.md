@@ -13,14 +13,31 @@ NeNaughtweb/
 ├── index.html              ← 主页面（不需修改）
 ├── css/style.css           ← 样式文件（不需修改）
 ├── js/main.js              ← 脚本（不需修改）
+├── start.sh                ← macOS/Linux 本地预览
+├── start.bat               ← Windows 本地预览
 ├── content/
 │   ├── posts.json          ← 📝 文章文件名清单（只列文件名，元数据来自 MD）
 │   ├── posts/*.md          ← 📝 文章内容（每篇一个 .md 文件）
 │   ├── photos.json         ← 📝 照片墙数据
 │   └── friends.json        ← 📝 友链数据
-├── img/                    ← 图片文件夹
+├── src/imgs/               ← 图片文件夹
+├── src/icons/              ← 友链图标
 ├── _headers                ← Cloudflare 缓存配置
 └── README.md               ← 本文件
+```
+
+## 👀 本地预览
+
+网站内容通过 `fetch` 读取 JSON 和 Markdown，不能直接双击 `index.html` 预览。请启动一个本地 HTTP 服务：
+
+```bash
+./start.sh
+```
+
+Windows 可双击 `start.bat`。启动后访问：
+
+```text
+http://localhost:8080
 ```
 
 ## ✍️ 发布新文章（博客推送）
@@ -89,14 +106,14 @@ Cloudflare Pages 自动重新部署，1-2 分钟后上线。
 ```json
 {
   "id": 4,
-  "src": "img/gallery/photo4.jpg",
-  "thumb": "img/gallery/thumb/photo4.jpg",
+  "src": "src/imgs/照片墙/photo4.jpg",
+  "thumb": "src/imgs/照片墙/thumb/photo4.jpg",
   "caption": "夏日演出",
   "date": "2026-06"
 }
 ```
 
-把照片放到 `img/gallery/`，缩略图（可选）放到 `img/gallery/thumb/`。
+把照片放到 `src/imgs/照片墙/`，缩略图（可选）放到同级缩略图目录。
 
 ## 🔗 添加友链
 
@@ -105,7 +122,7 @@ Cloudflare Pages 自动重新部署，1-2 分钟后上线。
 ```json
 {
   "name": "乐队名称",
-  "avatar": "img/friends/band.jpg",
+  "avatar": "src/icons/band.jpg",
   "url": "https://space.bilibili.com/xxxxx",
   "description": "一句简介"
 }
