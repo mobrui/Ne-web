@@ -18,9 +18,10 @@ document.addEventListener('DOMContentLoaded', () => {
   initNav();
   initSmoothScroll();
   initScrollSpy();
-  loadAllContent();
-  initLightbox();
   initScrollReveal();
+  initPostOverlay();
+  initLightbox();
+  loadAllContent();
 });
 
 // ============================================================
@@ -38,17 +39,26 @@ function initNav() {
   const toggle = document.getElementById('navToggle');
   const links = document.getElementById('navLinks');
 
+  toggle.setAttribute('aria-expanded', 'false');
+
+  function closeNav() {
+    links.classList.remove('open');
+    toggle.classList.remove('open');
+    toggle.setAttribute('aria-expanded', 'false');
+  }
+
   toggle.addEventListener('click', () => {
     const open = links.classList.toggle('open');
     toggle.classList.toggle('open', open);
-    toggle.setAttribute('aria-expanded', open);
+    toggle.setAttribute('aria-expanded', String(open));
   });
 
   links.querySelectorAll('a').forEach(a => {
-    a.addEventListener('click', () => {
-      links.classList.remove('open');
-      toggle.classList.remove('open');
-    });
+    a.addEventListener('click', closeNav);
+  });
+
+  document.addEventListener('keydown', (e) => {
+    if (e.key === 'Escape') closeNav();
   });
 
   let ticking = false;
@@ -111,6 +121,13 @@ function initScrollSpy() {
 let _revealObserver = null;
 
 function initScrollReveal() {
+  if (!('IntersectionObserver' in window)) {
+    document.querySelectorAll('.about-card, .news-card, .joinus-item, .friend-card').forEach(el => {
+      el.classList.add('visible');
+    });
+    return;
+  }
+
   _revealObserver = new IntersectionObserver((entries) => {
     entries.forEach(entry => {
       if (entry.isIntersecting) entry.target.classList.add('visible');
@@ -123,7 +140,12 @@ function initScrollReveal() {
 
 // Call after dynamic content renders
 function observeDynamicElements() {
-  if (!_revealObserver) return;
+  if (!_revealObserver) {
+    document.querySelectorAll('.news-card, .joinus-item, .friend-card').forEach(el => {
+      el.classList.add('visible');
+    });
+    return;
+  }
   document.querySelectorAll('.news-card, .joinus-item, .friend-card').forEach(el => {
     _revealObserver.observe(el);
   });
@@ -156,7 +178,8 @@ async function loadPosts() {
     // 1. Fetch file manifest (just filenames)
     const manifestRes = await fetch('content/posts.json');
     if (!manifestRes.ok) throw new Error(`HTTP ${manifestRes.status}`);
-    const files = await manifestRes.json();
+    const manifest = await manifestRes.json();
+    const files = Array.isArray(manifest) ? manifest.filter(isSafePostFilename) : [];
 
     if (!files.length) {
       container.innerHTML = '<p class="empty-state">暂无文章，敬请期待 ✨</p>';
@@ -204,6 +227,7 @@ async function loadPosts() {
         <p>请使用以下方式之一：</p>
         <p style="margin-top:8px;">
           <strong>Windows：</strong>双击 <code>start.bat</code><br>
+          <strong>macOS / Linux：</strong><code>./start.sh</code><br>
           <strong>终端：</strong><code>python -m http.server 8080</code><br>
           <strong>VS Code：</strong>安装 Live Server 插件右键打开
         </p>
@@ -219,16 +243,16 @@ function renderPostList(posts) {
   const container = document.getElementById('newsContainer');
 
   // Sort by date descending (from MD front matter)
-  const sorted = [...posts].sort((a, b) => new Date(b.meta.date) - new Date(a.meta.date));
+  const sorted = [...posts].sort((a, b) => parseDateValue(b.meta.date) - parseDateValue(a.meta.date));
 
   container.innerHTML = sorted.map((post, i) => `
-    <article class="news-card" style="--delay:${i * 0.1}s" data-post-file="${encodeURIComponent(post.file)}">
+    <article class="news-card" style="--delay:${i * 0.1}s" data-post-file="${escapeAttr(encodeURIComponent(post.file))}" role="button" tabindex="0">
       <div class="news-card-inner">
-        ${post.meta.image ? `<div class="news-card-img"><img src="${post.meta.image}" alt="${post.meta.title}" loading="lazy"></div>` : ''}
+        ${post.meta.image ? `<div class="news-card-img"><img src="${escapeAttr(sanitizeUrl(post.meta.image, { image: true }))}" alt="${escapeAttr(post.meta.title || '活动图片')}" loading="lazy"></div>` : ''}
         <div class="news-card-body">
-          <time datetime="${post.meta.date}" class="news-date">${formatDate(post.meta.date)}</time>
-          <h3 class="news-title">${post.meta.title || '未命名'}</h3>
-          <p class="news-summary">${post.meta.summary || ''}</p>
+          <time datetime="${escapeAttr(post.meta.date || '')}" class="news-date">${escapeHtml(formatDate(post.meta.date))}</time>
+          <h3 class="news-title">${escapeHtml(post.meta.title || '未命名')}</h3>
+          <p class="news-summary">${escapeHtml(post.meta.summary || '')}</p>
           <span class="news-readmore">阅读全文 →</span>
         </div>
       </div>
@@ -240,6 +264,13 @@ function renderPostList(posts) {
     card.addEventListener('click', () => {
       const file = decodeURIComponent(card.dataset.postFile);
       openPost(file);
+    });
+    card.addEventListener('keydown', (e) => {
+      if (e.key === 'Enter' || e.key === ' ') {
+        e.preventDefault();
+        const file = decodeURIComponent(card.dataset.postFile);
+        openPost(file);
+      }
     });
   });
 }
@@ -254,12 +285,13 @@ async function openPost(filePath) {
   const date = document.getElementById('postDate');
 
   // Show overlay with loading spinner
+  const wasOpen = overlay.classList.contains('open');
   overlay.classList.add('open');
+  overlay.scrollTop = 0;
   body.innerHTML = '<div class="spinner"></div>';
   title.textContent = '';
   date.textContent = '';
-  document.body.style.overflow = 'hidden';
-  window.scrollTo({ top: 0, behavior: 'instant' });
+  if (!wasOpen) lockPageScroll();
 
   // Try cache first (post was already fetched during loadPosts)
   let post = _postsCache.find(p => p.file === filePath);
@@ -287,8 +319,9 @@ async function openPost(filePath) {
 
 function closePost() {
   const overlay = document.getElementById('postOverlay');
+  if (!overlay.classList.contains('open')) return;
   overlay.classList.remove('open');
-  document.body.style.overflow = '';
+  unlockPageScroll();
 }
 
 function initPostOverlay() {
@@ -298,13 +331,11 @@ function initPostOverlay() {
 
   // Click backdrop
   document.getElementById('postOverlay').addEventListener('click', (e) => {
-    if (e.target === e.currentTarget) closePost();
+    if (e.target === e.currentTarget || e.target.classList.contains('post-overlay-backdrop')) closePost();
   });
 
   // Escape handled globally in initLightbox (unified handler)
 }
-// Run early so overlay listeners are ready
-initPostOverlay();
 
 // ============================================================
 //  MARKDOWN PARSER
@@ -321,10 +352,10 @@ function parseMarkdown(md, basePath) {
       const kv = line.match(/^([\w-]+):\s*(.*)/);
       if (kv) {
         const key = kv[1].trim();
-        let val = kv[2].trim();
+        let val = stripOuterQuotes(kv[2].trim());
         // Resolve relative image path in front matter (e.g. image: imgs/foo.jpg)
         if (key === 'image' && val && basePath) {
-          val = resolveRelativeUrl(val, basePath);
+          val = sanitizeUrl(resolveRelativeUrl(val, basePath), { image: true });
         }
         meta[key] = val;
       }
@@ -363,7 +394,7 @@ function parseMarkdown(md, basePath) {
     // Blockquote
     if (firstLine.startsWith('> ')) {
       const qLines = lines.map(l => l.replace(/^>\s?/, ''));
-      htmlBlocks.push(`<blockquote class="post-quote"><p>${inlineParse(qLines.join('\n'), basePath)}</p></blockquote>`);
+      htmlBlocks.push(`<blockquote class="post-quote"><p>${inlineParse(qLines.join('\n'), basePath).replace(/\n/g, '<br>')}</p></blockquote>`);
       continue;
     }
 
@@ -390,7 +421,7 @@ function parseMarkdown(md, basePath) {
     }
 
     // Paragraph (default)
-    htmlBlocks.push(`<p class="post-p">${inlineParse(block.replace(/\n/g, '<br>'), basePath)}</p>`);
+    htmlBlocks.push(`<p class="post-p">${inlineParse(block, basePath).replace(/\n/g, '<br>')}</p>`);
   }
 
   return { meta, html: htmlBlocks.join('\n') };
@@ -399,26 +430,43 @@ function parseMarkdown(md, basePath) {
 // Resolve a URL: if it's relative (doesn't start with /, http, data), prepend basePath
 function resolveRelativeUrl(url, basePath) {
   if (!url || !basePath) return url;
-  if (/^(https?:|\/\/|\/|data:)/.test(url)) return url; // absolute or data URI, leave as-is
+  if (/^(?:[a-z][a-z0-9+.-]*:|\/\/|\/)/i.test(url)) return url; // absolute, scheme, or root URL
   return basePath + url;
 }
 
 // Inline parser: bold, italic, links, images, code, strikethrough
 function inlineParse(text, basePath) {
-  return text
-    // Images ![alt](url)
-    .replace(/!\[([^\]]*)\]\(([^)]+)\)/g, (_, alt, url) =>
-      `<img src="${resolveRelativeUrl(url, basePath)}" alt="${alt}" class="post-img" loading="lazy">`)
-    // Links [text](url)
-    .replace(/\[([^\]]+)\]\(([^)]+)\)/g, '<a href="$2" target="_blank" rel="noopener">$1</a>')
-    // Bold **text** or __text__
+  const tokens = [];
+  const stash = (html) => {
+    const index = tokens.push(html) - 1;
+    return `\uE000${index}\uE000`;
+  };
+
+  let source = String(text || '');
+
+  source = source.replace(/!\[([^\]]*)\]\(([^)]+)\)/g, (_, alt, url) => {
+    const src = sanitizeUrl(resolveRelativeUrl(url.trim(), basePath), { image: true });
+    if (!src) return alt || '[图片]';
+    return stash(`<img src="${escapeAttr(src)}" alt="${escapeAttr(alt)}" class="post-img" loading="lazy">`);
+  });
+
+  source = source.replace(/\[([^\]]+)\]\(([^)]+)\)/g, (_, label, url) => {
+    const href = sanitizeUrl(resolveRelativeUrl(url.trim(), basePath));
+    if (!href) return label;
+    return stash(`<a href="${escapeAttr(href)}" target="_blank" rel="noopener noreferrer">${escapeHtml(label)}</a>`);
+  });
+
+  let html = escapeHtml(source);
+
+  html = html
+    .replace(/`([^`]+)`/g, (_, code) => stash(`<code class="post-code">${code}</code>`))
     .replace(/\*\*(.+?)\*\*/g, '<strong>$1</strong>')
     .replace(/__(.+?)__/g, '<strong>$1</strong>')
-    // Italic *text* or _text_
+    .replace(/~~(.+?)~~/g, '<del>$1</del>')
     .replace(/\*(.+?)\*/g, '<em>$1</em>')
-    .replace(/_(.+?)_/g, '<em>$1</em>')
-    // Inline code `text`
-    .replace(/`([^`]+)`/g, '<code class="post-code">$1</code>');
+    .replace(/_(.+?)_/g, '<em>$1</em>');
+
+  return html.replace(/\uE000(\d+)\uE000/g, (_, index) => tokens[Number(index)] || '');
 }
 
 // ============================================================
@@ -433,7 +481,8 @@ async function loadPhotos() {
   try {
     const res = await fetch('content/photos.json');
     if (!res.ok) throw new Error(`HTTP ${res.status}`);
-    const photos = await res.json();
+    const data = await res.json();
+    const photos = Array.isArray(data) ? data : [];
     if (!photos.length) {
       container.innerHTML = '<p class="empty-state" style="padding:60px 24px;">暂无照片，敬请期待 📸</p>';
       return;
@@ -456,20 +505,27 @@ function renderMarquee(photos) {
   const mid = Math.ceil(photos.length / 2);
   const row1 = photos.slice(0, mid);
   const row2 = photos.slice(mid);
+  const safeRow2 = row2.length ? row2 : row1;
 
-  const makeItem = (photo, i) => `
-    <div class="gallery-item" data-src="${photo.src || photo.thumb || ''}" data-index="${i}">
-      ${photo.src || photo.thumb
-        ? `<img src="${photo.thumb || photo.src}" alt="照片" loading="lazy">`
+  const makeItem = (photo, i) => {
+    const fullSrc = sanitizeUrl(photo.src || photo.thumb || '', { image: true }) ||
+      sanitizeUrl(photo.thumb || '', { image: true });
+    const thumbSrc = sanitizeUrl(photo.thumb || photo.src || '', { image: true });
+    const caption = photo.caption || '照片';
+    return `
+    <div class="gallery-item" data-src="${escapeAttr(fullSrc)}" data-caption="${escapeAttr(caption)}" data-index="${i}">
+      ${thumbSrc
+        ? `<img src="${escapeAttr(thumbSrc)}" alt="${escapeAttr(caption)}" loading="lazy">`
         : `<div class="gallery-placeholder">
              <svg width="48" height="48" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1"><rect x="3" y="3" width="18" height="18" rx="2"/><circle cx="8.5" cy="8.5" r="1.5"/><path d="m21 15-5-5L5 21"/></svg>
            </div>`
       }
     </div>`;
+  };
 
   // Duplicate each row for seamless looping
-  const row1html = [...row1, ...row1].map((p, i) => makeItem(p, photos.indexOf(p))).join('');
-  const row2html = [...row2, ...row2].map((p, i) => makeItem(p, photos.indexOf(p))).join('');
+  const row1html = [...row1, ...row1].map((p) => makeItem(p, photos.indexOf(p))).join('');
+  const row2html = [...safeRow2, ...safeRow2].map((p) => makeItem(p, photos.indexOf(p))).join('');
 
   container.innerHTML = `
     <div class="gallery-row row-left">${row1html}</div>
@@ -481,6 +537,8 @@ function renderMarquee(photos) {
   // ============================================================
   const rowLeft  = container.querySelector('.row-left');
   const rowRight = container.querySelector('.row-right');
+  const eventController = new AbortController();
+  const eventSignal = eventController.signal;
 
   // --- State ---
   let posLeft  = 0;                 // row-left  translateX (px); scrolls negative
@@ -515,7 +573,7 @@ function renderMarquee(photos) {
   }
   scheduleMeasures();
   const onResize = () => scheduleMeasures();
-  window.addEventListener('resize', onResize);
+  window.addEventListener('resize', onResize, { signal: eventSignal });
 
   // --- Apply positions to DOM ---
   function apply() {
@@ -559,7 +617,7 @@ function renderMarquee(photos) {
     wrap();
     apply();
     markInteraction();
-  }, { passive: false });
+  }, { passive: false, signal: eventSignal });
 
   // ============================================================
   //  TOUCH — mobile
@@ -568,7 +626,6 @@ function renderMarquee(photos) {
   let touchPosL = 0, touchPosR = 0;
   let touchActive = false;
   let touchDir = null;             // null | true=horizontal | false=vertical
-  let touchHasMoved = false;       // suppress click after drag
 
   container.addEventListener('touchstart', (e) => {
     if (e.touches.length !== 1) { touchActive = false; return; }
@@ -578,9 +635,8 @@ function renderMarquee(photos) {
     touchPosR   = posRight;
     touchActive = true;
     touchDir    = null;
-    touchHasMoved = false;
     measure();
-  }, { passive: true });
+  }, { passive: true, signal: eventSignal });
 
   container.addEventListener('touchmove', (e) => {
     if (!touchActive || e.touches.length !== 1) return;
@@ -600,7 +656,6 @@ function renderMarquee(photos) {
     if (touchDir) {
       // Horizontal swipe → drive photo wall
       e.preventDefault();
-      touchHasMoved = true;
       suppressClick = true;          // don't open lightbox after drag
       // Swipe left (dx<0) → content moves left → rowLeft decreases, rowRight increases
       posLeft  = touchPosL + dx;
@@ -610,22 +665,22 @@ function renderMarquee(photos) {
       markInteraction();
     }
     // Vertical → let page scroll (don't preventDefault)
-  }, { passive: false });
+  }, { passive: false, signal: eventSignal });
 
   const endTouch = () => { touchActive = false; touchDir = null; };
-  container.addEventListener('touchend', endTouch);
-  container.addEventListener('touchcancel', endTouch);
+  container.addEventListener('touchend', endTouch, { signal: eventSignal });
+  container.addEventListener('touchcancel', endTouch, { signal: eventSignal });
 
   // ============================================================
   //  HOVER
   // ============================================================
-  container.addEventListener('mouseenter', () => { isHovering = true; });
+  container.addEventListener('mouseenter', () => { isHovering = true; }, { signal: eventSignal });
   container.addEventListener('mouseleave', () => {
     isHovering = false;
     userInteracting = false;
     container.classList.remove('scrolling');
     if (resumeTimer) { clearTimeout(resumeTimer); resumeTimer = null; }
-  });
+  }, { signal: eventSignal });
 
   // ============================================================
   //  ANIMATION LOOP  (requestAnimationFrame)
@@ -655,7 +710,7 @@ function renderMarquee(photos) {
   container._cleanup = () => {
     cancelAnimationFrame(rafId);
     if (resumeTimer) clearTimeout(resumeTimer);
-    window.removeEventListener('resize', onResize);
+    eventController.abort();
   };
 
   // ============================================================
@@ -668,13 +723,7 @@ function renderMarquee(photos) {
       if (suppressClick) return;
       const src = item.dataset.src;
       if (!src) return;
-      const lightbox = document.getElementById('lightbox');
-      const lbImg = document.getElementById('lightboxImg');
-      lbImg.src = src;
-      lbImg.alt = '照片';
-      document.getElementById('lightboxCaption').textContent = '';
-      lightbox.classList.add('open');
-      document.body.style.overflow = 'hidden';
+      openLightbox(src, item.dataset.caption || '', item.dataset.caption || '照片');
     });
   });
 
@@ -682,21 +731,41 @@ function renderMarquee(photos) {
   container.addEventListener('click', () => {
     // Use a microtask so the suppress check runs first on the item
     Promise.resolve().then(() => { suppressClick = false; });
-  });
+  }, { signal: eventSignal });
 }
 
 // ============================================================
 //  LIGHTBOX
 // ============================================================
+let _lightboxCleanupTimer = 0;
+
+function openLightbox(src, caption = '', alt = '') {
+  const safeSrc = sanitizeUrl(src, { image: true });
+  if (!safeSrc) return;
+
+  const lightbox = document.getElementById('lightbox');
+  const img = document.getElementById('lightboxImg');
+  const cap = document.getElementById('lightboxCaption');
+
+  if (_lightboxCleanupTimer) clearTimeout(_lightboxCleanupTimer);
+  img.src = safeSrc;
+  img.alt = alt || caption || '照片';
+  cap.textContent = caption || '';
+  const wasOpen = lightbox.classList.contains('open');
+  lightbox.classList.add('open');
+  if (!wasOpen) lockPageScroll();
+}
+
 function initLightbox() {
   const lightbox = document.getElementById('lightbox');
   const img = document.getElementById('lightboxImg');
   const close = document.getElementById('lightboxClose');
 
   function closeLightbox() {
+    if (!lightbox.classList.contains('open')) return;
     lightbox.classList.remove('open');
-    document.body.style.overflow = '';
-    setTimeout(() => { img.src = ''; }, 300);
+    unlockPageScroll();
+    _lightboxCleanupTimer = setTimeout(() => { img.src = ''; }, 300);
   }
 
   close.addEventListener('click', closeLightbox);
@@ -709,8 +778,7 @@ function initLightbox() {
       if (lightbox.classList.contains('open')) {
         closeLightbox();
       } else if (document.getElementById('postOverlay').classList.contains('open')) {
-        document.getElementById('postOverlay').classList.remove('open');
-        document.body.style.overflow = '';
+        closePost();
       }
     }
   });
@@ -724,7 +792,8 @@ async function loadJoinUs() {
   try {
     const res = await fetch('content/joinus.json');
     if (!res.ok) throw new Error(`HTTP ${res.status}`);
-    const images = await res.json();
+    const data = await res.json();
+    const images = Array.isArray(data) ? data : [];
     if (!images.length) {
       container.innerHTML = '<p class="empty-state">暂无内容</p>';
       return;
@@ -738,35 +807,33 @@ async function loadJoinUs() {
 
 function renderJoinUs(images) {
   const container = document.getElementById('joinusGrid');
-  container.innerHTML = images.map((img, i) => `
+  container.innerHTML = images.map((img, i) => {
+    const fullSrc = sanitizeUrl(img.src || img.thumb || '', { image: true });
+    const thumbSrc = sanitizeUrl(img.thumb || img.src || '', { image: true });
+    const caption = img.caption || '待添加图片';
+    return `
     <div class="joinus-item" style="--delay:${i * 0.1}s"
-         data-src="${img.src || ''}" data-caption="${img.caption || ''}">
-      ${img.src || img.thumb
-        ? `<img src="${img.thumb || img.src}" alt="${img.caption || ''}" loading="lazy">`
+         data-src="${escapeAttr(fullSrc)}" data-caption="${escapeAttr(caption)}">
+      ${thumbSrc
+        ? `<img src="${escapeAttr(thumbSrc)}" alt="${escapeAttr(caption)}" loading="lazy">`
         : `<div class="joinus-placeholder">
              <svg width="56" height="56" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1"><rect x="3" y="3" width="18" height="18" rx="2"/><circle cx="8.5" cy="8.5" r="1.5"/><path d="m21 15-5-5L5 21"/></svg>
-             <span>${img.caption || '待添加图片'}</span>
+             <span>${escapeHtml(caption)}</span>
            </div>`
       }
       <div class="joinus-overlay">
-        <span class="joinus-caption">${img.caption || ''}</span>
+        <span class="joinus-caption">${escapeHtml(caption)}</span>
       </div>
     </div>
-  `).join('');
+  `;
+  }).join('');
 
   // Click to view in lightbox
   container.querySelectorAll('.joinus-item').forEach(item => {
     item.addEventListener('click', () => {
       const src = item.dataset.src;
       if (!src) return;
-      const lightbox = document.getElementById('lightbox');
-      const lbImg = document.getElementById('lightboxImg');
-      const lbCap = document.getElementById('lightboxCaption');
-      lbImg.src = src;
-      lbImg.alt = item.dataset.caption;
-      lbCap.textContent = item.dataset.caption;
-      lightbox.classList.add('open');
-      document.body.style.overflow = 'hidden';
+      openLightbox(src, item.dataset.caption || '', item.dataset.caption || '宣传图');
     });
   });
 }
@@ -779,7 +846,8 @@ async function loadFriends() {
   try {
     const res = await fetch('content/friends.json');
     if (!res.ok) throw new Error(`HTTP ${res.status}`);
-    const friends = await res.json();
+    const data = await res.json();
+    const friends = Array.isArray(data) ? data : [];
     if (!friends.length) {
       container.innerHTML = '<p class="empty-state">暂无友链 🔗</p>';
       return;
@@ -793,29 +861,114 @@ async function loadFriends() {
 
 function renderFriends(friends) {
   const container = document.getElementById('friendsGrid');
-  container.innerHTML = friends.map((friend, i) => `
-    <a href="${friend.url}" target="_blank" rel="noopener" class="friend-card" style="--delay:${i * 0.1}s" title="${friend.description || friend.name}">
+  container.innerHTML = friends.map((friend, i) => {
+    const name = friend.name || '友链';
+    const description = friend.description || '';
+    const url = sanitizeUrl(friend.url || '#') || '#';
+    const avatar = sanitizeUrl(friend.avatar || '', { image: true });
+    return `
+    <a href="${escapeAttr(url)}" target="_blank" rel="noopener noreferrer" class="friend-card" style="--delay:${i * 0.1}s" title="${escapeAttr(description || name)}">
       <div class="friend-avatar">
-        ${friend.avatar
-          ? `<img src="${friend.avatar}" alt="${friend.name}" loading="lazy">`
-          : `<div class="friend-avatar-placeholder">${friend.name.charAt(0)}</div>`
+        ${avatar
+          ? `<img src="${escapeAttr(avatar)}" alt="${escapeAttr(name)}" loading="lazy">`
+          : `<div class="friend-avatar-placeholder">${escapeHtml(name.charAt(0))}</div>`
         }
       </div>
       <div class="friend-info">
-        <span class="friend-name">${friend.name}</span>
-        ${friend.description ? `<span class="friend-desc">${friend.description}</span>` : ''}
+        <span class="friend-name">${escapeHtml(name)}</span>
+        ${description ? `<span class="friend-desc">${escapeHtml(description)}</span>` : ''}
       </div>
       <span class="friend-arrow">→</span>
     </a>
-  `).join('');
+  `;
+  }).join('');
 }
 
 // ============================================================
 //  Helpers
 // ============================================================
+let _scrollLockCount = 0;
+let _scrollYBeforeLock = 0;
+
+function lockPageScroll() {
+  if (_scrollLockCount === 0) {
+    _scrollYBeforeLock = window.scrollY || document.documentElement.scrollTop || 0;
+    document.body.style.position = 'fixed';
+    document.body.style.top = `-${_scrollYBeforeLock}px`;
+    document.body.style.left = '0';
+    document.body.style.right = '0';
+    document.body.style.width = '100%';
+  }
+  _scrollLockCount += 1;
+}
+
+function unlockPageScroll() {
+  if (_scrollLockCount === 0) return;
+  _scrollLockCount -= 1;
+  if (_scrollLockCount > 0) return;
+
+  document.body.style.position = '';
+  document.body.style.top = '';
+  document.body.style.left = '';
+  document.body.style.right = '';
+  document.body.style.width = '';
+  window.scrollTo({ top: _scrollYBeforeLock, behavior: 'auto' });
+}
+
+function escapeHtml(value) {
+  return String(value ?? '')
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;')
+    .replace(/"/g, '&quot;')
+    .replace(/'/g, '&#39;');
+}
+
+function escapeAttr(value) {
+  return escapeHtml(value);
+}
+
+function stripOuterQuotes(value) {
+  return String(value ?? '').replace(/^(['"])(.*)\1$/, '$2');
+}
+
+function sanitizeUrl(url, options = {}) {
+  const value = String(url ?? '').trim();
+  if (!value || /[\u0000-\u001F\u007F]/.test(value)) return '';
+
+  const schemeMatch = value.match(/^([a-z][a-z0-9+.-]*):/i);
+  if (!schemeMatch) return value;
+
+  const scheme = schemeMatch[1].toLowerCase();
+  if (options.image && scheme === 'data') {
+    return /^data:image\/(?:png|jpe?g|gif|webp);base64,/i.test(value) ? value : '';
+  }
+
+  const allowedSchemes = options.image ? ['http', 'https'] : ['http', 'https', 'mailto'];
+  return allowedSchemes.includes(scheme) ? value : '';
+}
+
+function isSafePostFilename(filename) {
+  const value = String(filename ?? '').trim();
+  return value.endsWith('.md') && !value.includes('/') && !value.includes('\\') && !value.includes('\0');
+}
+
+function parseDateValue(dateStr) {
+  if (!dateStr) return 0;
+  const isoDate = String(dateStr).match(/^(\d{4})-(\d{2})-(\d{2})$/);
+  if (isoDate) {
+    return new Date(Number(isoDate[1]), Number(isoDate[2]) - 1, Number(isoDate[3])).getTime();
+  }
+  const d = new Date(dateStr);
+  return Number.isNaN(d.getTime()) ? 0 : d.getTime();
+}
+
 function formatDate(dateStr) {
   if (!dateStr) return '';
+  const isoDate = String(dateStr).match(/^(\d{4})-(\d{2})-(\d{2})$/);
+  if (isoDate) return `${isoDate[1]}.${isoDate[2]}.${isoDate[3]}`;
+
   const d = new Date(dateStr);
-  if (isNaN(d.getTime())) return dateStr;
+  if (Number.isNaN(d.getTime())) return dateStr;
   return `${d.getFullYear()}.${String(d.getMonth() + 1).padStart(2, '0')}.${String(d.getDate()).padStart(2, '0')}`;
 }

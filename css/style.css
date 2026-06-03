@@ -5,10 +5,10 @@
 
 /* ---------- CSS Variables ---------- */
 :root {
-  --bg-deep:    #06060e;
-  --bg-dark:    #0c0c1a;
-  --bg-card:    #111128;
-  --bg-card-hv: #181835;
+  --bg-deep:    #07080d;
+  --bg-dark:    #101119;
+  --bg-card:    #171827;
+  --bg-card-hv: #202233;
   --text:       #e0dcee;
   --text-dim:   #8884a8;
   --accent:     #a78bfa;   /* violet */
@@ -17,8 +17,8 @@
   --gold:       #fbbf24;
   --border:     rgba(167,139,250,0.15);
   --glow:       rgba(167,139,250,0.25);
-  --radius:     12px;
-  --radius-sm:  8px;
+  --radius:     8px;
+  --radius-sm:  6px;
   --font-body:  'Noto Sans SC', system-ui, sans-serif;
   --font-display:'Orbitron', 'Noto Sans SC', sans-serif;
   --max-w:      1200px;
@@ -42,6 +42,12 @@ body {
 img { max-width: 100%; display: block; }
 a { color: var(--accent); text-decoration: none; transition: color 0.25s; }
 a:hover { color: var(--accent2); }
+a:focus-visible,
+button:focus-visible,
+.news-card:focus-visible {
+  outline: 2px solid var(--accent2);
+  outline-offset: 3px;
+}
 
 /* ---------- Selection ---------- */
 ::selection { background: var(--accent); color: var(--bg-deep); }
@@ -425,11 +431,11 @@ a:hover { color: var(--accent2); }
   display: flex; align-items: flex-start; justify-content: center;
   opacity: 0; pointer-events: none; transition: opacity 0.35s;
   overflow-y: auto; padding: 40px 20px 80px;
+  background: rgba(6,6,14,0.94);
 }
 .post-overlay.open { opacity: 1; pointer-events: auto; }
 .post-overlay-backdrop {
-  position: fixed; inset: 0; background: rgba(6,6,14,0.94);
-  z-index: -1;
+  display: none;
 }
 .post-detail {
   position: relative; width: 100%; max-width: 760px;
@@ -529,6 +535,10 @@ a:hover { color: var(--accent2); }
 }
 .news-card:hover .news-readmore { opacity: 1; transform: translateX(0); }
 .news-card { cursor: pointer; }
+.news-card:focus-visible .news-card-inner {
+  border-color: var(--accent2);
+  box-shadow: 0 0 24px rgba(103,232,249,0.22);
+}
 
 /* Spinner */
 .spinner {
@@ -589,6 +599,10 @@ a:hover { color: var(--accent2); }
 
   .joinus { padding: 80px 20px 60px; }
   .joinus-grid { grid-template-columns: repeat(3, 1fr); gap: 10px; }
+
+  .post-overlay { padding: 18px 12px 56px; }
+  .post-detail { margin: 48px 0 0; padding: 40px 22px 28px; }
+  .lightbox-close { top: 16px; right: 16px; }
 }
 
 @media (max-width: 480px) {
@@ -597,4 +611,15 @@ a:hover { color: var(--accent2); }
   .hero-logo { width: 100px; }
   .about-text { font-size: 0.95rem; }
   .about-card { padding: 24px 20px; }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    scroll-behavior: auto !important;
+    transition-duration: 0.01ms !important;
+  }
 }

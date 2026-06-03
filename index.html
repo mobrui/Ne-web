@@ -20,7 +20,7 @@
         <img src="src/imgs/LOGO.jpeg" alt="NE Naught" class="nav-avatar">
         <span class="nav-brand">NE Naught</span>
       </a>
-      <button class="nav-toggle" id="navToggle" aria-label="菜单">
+      <button class="nav-toggle" id="navToggle" type="button" aria-label="菜单" aria-controls="navLinks" aria-expanded="false">
         <span></span><span></span><span></span>
       </button>
       <ul class="nav-links" id="navLinks">
@@ -130,10 +130,10 @@
   </section>
 
   <!-- ========== POST DETAIL OVERLAY ========== -->
-  <div class="post-overlay" id="postOverlay">
+  <div class="post-overlay" id="postOverlay" role="dialog" aria-modal="true" aria-labelledby="postTitle">
     <div class="post-overlay-backdrop"></div>
     <div class="post-detail">
-      <button class="post-close" id="postClose" aria-label="关闭">&times;</button>
+      <button class="post-close" id="postClose" type="button" aria-label="关闭">&times;</button>
       <header class="post-detail-header">
         <time class="post-detail-date" id="postDate"></time>
         <h1 class="post-detail-title" id="postTitle"></h1>
@@ -142,14 +142,14 @@
         <div class="spinner"></div>
       </div>
       <footer class="post-detail-footer">
-        <button class="post-back-btn" id="postBackBtn">← 返回活动列表</button>
+        <button class="post-back-btn" id="postBackBtn" type="button">← 返回活动列表</button>
       </footer>
     </div>
   </div>
 
   <!-- ========== LIGHTBOX ========== -->
-  <div class="lightbox" id="lightbox">
-    <button class="lightbox-close" id="lightboxClose" aria-label="关闭">&times;</button>
+  <div class="lightbox" id="lightbox" role="dialog" aria-modal="true" aria-label="图片预览">
+    <button class="lightbox-close" id="lightboxClose" type="button" aria-label="关闭">&times;</button>
     <img src="" alt="" class="lightbox-img" id="lightboxImg">
     <p class="lightbox-caption" id="lightboxCaption"></p>
   </div>
