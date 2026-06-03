@@ -174,7 +174,7 @@ async function loadPosts() {
             return null;
           }
           const md = await mdRes.text();
-          const { meta, html } = parseMarkdown(md);
+          const { meta, html } = parseMarkdown(md, 'content/posts/');
           return { meta, html, file: path };
         } catch (err) {
           console.warn(`Failed to load post: ${path}`, err);
@@ -270,7 +270,7 @@ async function openPost(filePath) {
       const res = await fetch(filePath);
       if (!res.ok) throw new Error(`HTTP ${res.status}`);
       const md = await res.text();
-      const { meta, html } = parseMarkdown(md);
+      const { meta, html } = parseMarkdown(md, 'content/posts/');
       post = { meta, html, file: filePath };
       _postsCache.push(post);
     } catch (err) {
@@ -309,7 +309,7 @@ initPostOverlay();
 // ============================================================
 //  MARKDOWN PARSER
 //  ============================================================
-function parseMarkdown(md) {
+function parseMarkdown(md, basePath) {
   let meta = {};
 
   // 1. Extract YAML front matter
@@ -319,7 +319,15 @@ function parseMarkdown(md) {
     const fm = fmMatch[1];
     fm.split('\n').forEach(line => {
       const kv = line.match(/^([\w-]+):\s*(.*)/);
-      if (kv) meta[kv[1].trim()] = kv[2].trim();
+      if (kv) {
+        const key = kv[1].trim();
+        let val = kv[2].trim();
+        // Resolve relative image path in front matter (e.g. image: imgs/foo.jpg)
+        if (key === 'image' && val && basePath) {
+          val = resolveRelativeUrl(val, basePath);
+        }
+        meta[key] = val;
+      }
     });
     content = md.slice(fmMatch[0].length);
   }
@@ -348,14 +356,14 @@ function parseMarkdown(md) {
     const hMatch = firstLine.match(/^(#{1,6})\s+(.+)/);
     if (hMatch && lines.length === 1) {
       const level = hMatch[1].length;
-      htmlBlocks.push(`<h${level} class="post-h${level}">${inlineParse(hMatch[2])}</h${level}>`);
+      htmlBlocks.push(`<h${level} class="post-h${level}">${inlineParse(hMatch[2], basePath)}</h${level}>`);
       continue;
     }
 
     // Blockquote
     if (firstLine.startsWith('> ')) {
       const qLines = lines.map(l => l.replace(/^>\s?/, ''));
-      htmlBlocks.push(`<blockquote class="post-quote"><p>${inlineParse(qLines.join('\n'))}</p></blockquote>`);
+      htmlBlocks.push(`<blockquote class="post-quote"><p>${inlineParse(qLines.join('\n'), basePath)}</p></blockquote>`);
       continue;
     }
 
@@ -364,7 +372,7 @@ function parseMarkdown(md) {
       const items = [];
       for (const l of lines) {
         const m = l.match(/^[\-*+]\s+(.*)/);
-        if (m) items.push(`<li>${inlineParse(m[1])}</li>`);
+        if (m) items.push(`<li>${inlineParse(m[1], basePath)}</li>`);
       }
       htmlBlocks.push(`<ul class="post-list">${items.join('')}</ul>`);
       continue;
@@ -375,24 +383,32 @@ function parseMarkdown(md) {
       const items = [];
       for (const l of lines) {
         const m = l.match(/^\d+\.\s+(.*)/);
-        if (m) items.push(`<li>${inlineParse(m[1])}</li>`);
+        if (m) items.push(`<li>${inlineParse(m[1], basePath)}</li>`);
       }
       htmlBlocks.push(`<ol class="post-list">${items.join('')}</ol>`);
       continue;
     }
 
     // Paragraph (default)
-    htmlBlocks.push(`<p class="post-p">${inlineParse(block.replace(/\n/g, '<br>'))}</p>`);
+    htmlBlocks.push(`<p class="post-p">${inlineParse(block.replace(/\n/g, '<br>'), basePath)}</p>`);
   }
 
   return { meta, html: htmlBlocks.join('\n') };
 }
 
+// Resolve a URL: if it's relative (doesn't start with /, http, data), prepend basePath
+function resolveRelativeUrl(url, basePath) {
+  if (!url || !basePath) return url;
+  if (/^(https?:|\/\/|\/|data:)/.test(url)) return url; // absolute or data URI, leave as-is
+  return basePath + url;
+}
+
 // Inline parser: bold, italic, links, images, code, strikethrough
-function inlineParse(text) {
+function inlineParse(text, basePath) {
   return text
     // Images ![alt](url)
-    .replace(/!\[([^\]]*)\]\(([^)]+)\)/g, '<img src="$2" alt="$1" class="post-img" loading="lazy">')
+    .replace(/!\[([^\]]*)\]\(([^)]+)\)/g, (_, alt, url) =>
+      `<img src="${resolveRelativeUrl(url, basePath)}" alt="${alt}" class="post-img" loading="lazy">`)
     // Links [text](url)
     .replace(/\[([^\]]+)\]\(([^)]+)\)/g, '<a href="$2" target="_blank" rel="noopener">$1</a>')
     // Bold **text** or __text__
@@ -406,8 +422,10 @@ function inlineParse(text) {
 }
 
 // ============================================================
-//  LOAD PHOTOS — two-row infinite marquee
-// ============================================================
+//  LOAD PHOTOS — two-row infinite marquee (JS-driven)
+//  ============================================================
+//  Supports: auto-scroll, mouse-wheel (desktop), touch-drag (mobile),
+//  circular looping, hover-to-pause-auto (wheel still works).
 let _allPhotos = [];
 
 async function loadPhotos() {
@@ -430,6 +448,10 @@ async function loadPhotos() {
 
 function renderMarquee(photos) {
   const container = document.getElementById('galleryMarquee');
+
+  // Clean up previous animation loop if re-rendering
+  if (container._cleanup) container._cleanup();
+
   // Split into two halves
   const mid = Math.ceil(photos.length / 2);
   const row1 = photos.slice(0, mid);
@@ -445,7 +467,7 @@ function renderMarquee(photos) {
       }
     </div>`;
 
-  // Duplicate each row for seamless loop
+  // Duplicate each row for seamless looping
   const row1html = [...row1, ...row1].map((p, i) => makeItem(p, photos.indexOf(p))).join('');
   const row2html = [...row2, ...row2].map((p, i) => makeItem(p, photos.indexOf(p))).join('');
 
@@ -454,9 +476,196 @@ function renderMarquee(photos) {
     <div class="gallery-row row-right">${row2html}</div>
   `;
 
-  // Click any gallery photo → open lightbox directly
+  // ============================================================
+  //  JS-DRIVEN MARQUEE ENGINE
+  // ============================================================
+  const rowLeft  = container.querySelector('.row-left');
+  const rowRight = container.querySelector('.row-right');
+
+  // --- State ---
+  let posLeft  = 0;                 // row-left  translateX (px); scrolls negative
+  let posRight = 0;                 // row-right translateX (px); starts at -halfWidth, scrolls positive
+  let halfWLeft  = 0;              // half of row-left  scrollWidth (one copy)
+  let halfWRight = 0;              // half of row-right scrollWidth (one copy)
+  let posRightInitialized = false; // set posRight = -halfWRight once measured
+
+  const AUTO_SPEED = 28;           // pixels per second
+  let isHovering     = false;
+  let userInteracting = false;
+  let resumeTimer    = null;
+  const RESUME_DELAY = 1800;       // ms idle before auto-scroll resumes
+
+  // --- Measure half-widths ---
+  function measure() {
+    if (rowLeft.scrollWidth  > 0) halfWLeft  = rowLeft.scrollWidth  / 2;
+    if (rowRight.scrollWidth > 0) halfWRight = rowRight.scrollWidth / 2;
+    // Initialise row-right position to -halfWRight on first measurement
+    if (!posRightInitialized && halfWRight > 0) {
+      posRight = -halfWRight;
+      posRightInitialized = true;
+    }
+  }
+
+  // Schedule gradual remeasures (images load async, window may resize)
+  function scheduleMeasures() {
+    measure();
+    setTimeout(measure, 300);
+    setTimeout(measure, 800);
+    setTimeout(measure, 2000);
+  }
+  scheduleMeasures();
+  const onResize = () => scheduleMeasures();
+  window.addEventListener('resize', onResize);
+
+  // --- Apply positions to DOM ---
+  function apply() {
+    rowLeft.style.transform  = `translateX(${posLeft}px)`;
+    rowRight.style.transform = `translateX(${posRight}px)`;
+  }
+
+  // --- Circular wrap ---
+  function wrap() {
+    if (halfWLeft <= 0 || halfWRight <= 0) return;
+    // row-left: moves left (negative); wrap when past -halfWLeft
+    while (posLeft <= -halfWLeft) posLeft += halfWLeft;
+    while (posLeft > 0)            posLeft -= halfWLeft;
+    // row-right: moves right (positive); wrap when past 0 or before -halfWRight
+    while (posRight >= 0)           posRight -= halfWRight;
+    while (posRight < -halfWRight)  posRight += halfWRight;
+  }
+
+  // --- Mark user interaction → pause auto-scroll temporarily ---
+  function markInteraction() {
+    userInteracting = true;
+    container.classList.add('scrolling');
+    if (resumeTimer) clearTimeout(resumeTimer);
+    resumeTimer = setTimeout(() => {
+      userInteracting = false;
+      container.classList.remove('scrolling');
+    }, RESUME_DELAY);
+  }
+
+  // ============================================================
+  //  WHEEL — desktop
+  // ============================================================
+  container.addEventListener('wheel', (e) => {
+    if (!isHovering) return;
+    e.preventDefault();
+    measure();
+    const delta = e.deltaY * 0.7;   // dampen for smoother feel
+    // Scroll down (delta>0) → content moves left
+    posLeft  -= delta;
+    posRight += delta;
+    wrap();
+    apply();
+    markInteraction();
+  }, { passive: false });
+
+  // ============================================================
+  //  TOUCH — mobile
+  // ============================================================
+  let touchStartX = 0, touchStartY = 0;
+  let touchPosL = 0, touchPosR = 0;
+  let touchActive = false;
+  let touchDir = null;             // null | true=horizontal | false=vertical
+  let touchHasMoved = false;       // suppress click after drag
+
+  container.addEventListener('touchstart', (e) => {
+    if (e.touches.length !== 1) { touchActive = false; return; }
+    touchStartX = e.touches[0].clientX;
+    touchStartY = e.touches[0].clientY;
+    touchPosL   = posLeft;
+    touchPosR   = posRight;
+    touchActive = true;
+    touchDir    = null;
+    touchHasMoved = false;
+    measure();
+  }, { passive: true });
+
+  container.addEventListener('touchmove', (e) => {
+    if (!touchActive || e.touches.length !== 1) return;
+
+    const dx = e.touches[0].clientX - touchStartX;
+    const dy = e.touches[0].clientY - touchStartY;
+
+    // Determine dominant direction once movement exceeds threshold
+    if (touchDir === null) {
+      if (Math.abs(dx) > 6 || Math.abs(dy) > 6) {
+        touchDir = Math.abs(dx) >= Math.abs(dy);
+      } else {
+        return; // not enough movement yet
+      }
+    }
+
+    if (touchDir) {
+      // Horizontal swipe → drive photo wall
+      e.preventDefault();
+      touchHasMoved = true;
+      suppressClick = true;          // don't open lightbox after drag
+      // Swipe left (dx<0) → content moves left → rowLeft decreases, rowRight increases
+      posLeft  = touchPosL + dx;
+      posRight = touchPosR - dx;
+      wrap();
+      apply();
+      markInteraction();
+    }
+    // Vertical → let page scroll (don't preventDefault)
+  }, { passive: false });
+
+  const endTouch = () => { touchActive = false; touchDir = null; };
+  container.addEventListener('touchend', endTouch);
+  container.addEventListener('touchcancel', endTouch);
+
+  // ============================================================
+  //  HOVER
+  // ============================================================
+  container.addEventListener('mouseenter', () => { isHovering = true; });
+  container.addEventListener('mouseleave', () => {
+    isHovering = false;
+    userInteracting = false;
+    container.classList.remove('scrolling');
+    if (resumeTimer) { clearTimeout(resumeTimer); resumeTimer = null; }
+  });
+
+  // ============================================================
+  //  ANIMATION LOOP  (requestAnimationFrame)
+  // ============================================================
+  let lastTime = 0;
+  let rafId = 0;
+
+  function animate(timestamp) {
+    if (lastTime === 0) lastTime = timestamp;
+    const dt = Math.min((timestamp - lastTime) / 1000, 0.2); // cap at 200 ms
+    lastTime = timestamp;
+
+    // Auto-scroll when NOT hovering AND user is NOT interacting
+    if (!isHovering && !userInteracting && halfWLeft > 0 && halfWRight > 0) {
+      posLeft  -= AUTO_SPEED * dt;
+      posRight += AUTO_SPEED * dt;
+      wrap();
+      apply();
+    }
+
+    rafId = requestAnimationFrame(animate);
+  }
+
+  rafId = requestAnimationFrame(animate);
+
+  // --- Cleanup (for re-render / hot-reload) ---
+  container._cleanup = () => {
+    cancelAnimationFrame(rafId);
+    if (resumeTimer) clearTimeout(resumeTimer);
+    window.removeEventListener('resize', onResize);
+  };
+
+  // ============================================================
+  //  CLICK → LIGHTBOX  (suppressed after drag)
+  // ============================================================
+  let suppressClick = false;
+
   container.querySelectorAll('.gallery-item').forEach(item => {
     item.addEventListener('click', () => {
+      if (suppressClick) return;
       const src = item.dataset.src;
       if (!src) return;
       const lightbox = document.getElementById('lightbox');
@@ -467,6 +676,12 @@ function renderMarquee(photos) {
       lightbox.classList.add('open');
       document.body.style.overflow = 'hidden';
     });
+  });
+
+  // Reset suppressClick after any touch sequence ends
+  container.addEventListener('click', () => {
+    // Use a microtask so the suppress check runs first on the item
+    Promise.resolve().then(() => { suppressClick = false; });
   });
 }
 

@@ -266,30 +266,22 @@ a:hover { color: var(--accent2); }
 
 .gallery-marquee {
   position: relative; overflow: hidden;
+  cursor: grab;
+  user-select: none;
+  -webkit-user-select: none;
+  touch-action: pan-y;  /* vertical = page scroll, horizontal = photo wall */
 }
+.gallery-marquee:active { cursor: grabbing; }
+.gallery-marquee.scrolling { cursor: grabbing; }
 
 /* Each row */
 .gallery-row {
   display: flex; gap: 10px;
   width: max-content;
   will-change: transform;
+  /* JS drives transform — no CSS animation */
 }
 .gallery-row + .gallery-row { margin-top: 10px; }
-
-/* Row 1 scrolls left, Row 2 scrolls right */
-.gallery-row.row-left  { animation: marqueeLeft 80s linear infinite; }
-.gallery-row.row-right { animation: marqueeRight 80s linear infinite; }
-
-.gallery-marquee:hover .gallery-row { animation-play-state: paused; }
-
-@keyframes marqueeLeft {
-  0%   { transform: translateX(0); }
-  100% { transform: translateX(-50%); }
-}
-@keyframes marqueeRight {
-  0%   { transform: translateX(-50%); }
-  100% { transform: translateX(0); }
-}
 
 .gallery-item {
   flex: 0 0 auto;
@@ -411,8 +403,6 @@ a:hover { color: var(--accent2); }
 .friend-arrow { font-size: 1.2rem; color: var(--text-dim);
   transition: transform 0.35s, color 0.35s; }
 .friend-card:hover .friend-arrow { transform: translateX(4px); color: var(--accent2); }
-.friends-note { text-align: center; font-size: 0.9rem; color: var(--text-dim); }
-.friends-note a { font-weight: 600; }
 
 /* ============================================================
    FOOTER
